@@ -277,7 +277,7 @@ table.otable { min-width: 560px; }
 <body>
 <main class="wrap">
   <header class="head">
-    <div class="eyebrow"><span id="stage"></span> · 전략 <span id="ver" class="mono"></span></div>
+    <div class="eyebrow"><span id="stage"></span><span id="verWrap" hidden> · 전략 <span id="ver" class="mono"></span></span></div>
     <h1>수급 선행 스크리너</h1>
     <div class="meta" id="meta" hidden>
       <span>가격·수급 기준 <b id="asof" class="mono"></b></span>
@@ -429,6 +429,7 @@ function start(D) {
 
   $("stage").textContent = D.stage;
   $("ver").textContent = "v" + D.version;
+  $("verWrap").hidden = false;
   $("asof").textContent = D.asOf;
   $("hasof").textContent = D.holdingsAsOf;
   $("scope").textContent = D.scope;
