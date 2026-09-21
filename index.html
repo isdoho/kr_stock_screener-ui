@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>수급 선행 스크리너</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+:root {
+  color-scheme: light;
+  --page: #f3f4f1;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #74726c;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --ring: rgba(11, 11, 11, 0.10);
+  --s1: #2a78d6;
+  --s2: #eb6834;
+  --s3: #1baf7a;
+  --s4: #eda100;
+  --s5: #e87ba4;
+  --zone: rgba(42, 120, 214, 0.09);
+  --hl: rgba(42, 120, 214, 0.07);
+  --up: #cf3434;
+  --down: #2a6fd6;
+  --chip: #ebece7;
+  --chip-on: #0b0b0b;
+  --chip-on-ink: #fcfcfb;
+  --warn-ink: #7a5200;
+  --warn-bg: #fbeed0;
+  --sans: "IBM Plex Sans KR", system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0f0f0e;
+    --surface: #1a1a19;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #97958d;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --ring: rgba(255, 255, 255, 0.10);
+    --s1: #3987e5;
+    --s2: #d95926;
+    --s3: #199e70;
+    --s4: #c98500;
+    --s5: #d55181;
+    --zone: rgba(57, 135, 229, 0.16);
+    --hl: rgba(57, 135, 229, 0.12);
+    --up: #f06a6a;
+    --down: #6aa4f2;
+    --chip: #2a2a28;
+    --chip-on: #ffffff;
+    --chip-on-ink: #1a1a19;
+    --warn-ink: #f3c567;
+    --warn-bg: #3a2e12;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0f0f0e;
+  --surface: #1a1a19;
+  --ink: #ffffff;
+  --ink-2: #c3c2b7;
+  --muted: #97958d;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --ring: rgba(255, 255, 255, 0.10);
+  --s1: #3987e5;
+  --s2: #d95926;
+  --s3: #199e70;
+  --s4: #c98500;
+  --s5: #d55181;
+  --zone: rgba(57, 135, 229, 0.16);
+  --hl: rgba(57, 135, 229, 0.12);
+  --up: #f06a6a;
+  --down: #6aa4f2;
+  --chip: #2a2a28;
+  --chip-on: #ffffff;
+  --chip-on-ink: #1a1a19;
+  --warn-ink: #f3c567;
+  --warn-bg: #3a2e12;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding-inline: 20px;
+  padding-block: 28px 56px;
+  display: grid;
+  gap: 20px;
+}
+h1, h2 { text-wrap: balance; margin: 0; }
+.mono { font-family: var(--mono); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* header */
+.head { display: grid; gap: 6px; }
+.eyebrow {
+  font-size: 12px; letter-spacing: 0.06em; color: var(--muted); font-weight: 500;
+}
+h1 { font-size: clamp(24px, 3.4vw, 32px); font-weight: 700; letter-spacing: -0.01em; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--ink-2); font-size: 13px; }
+.meta b { color: var(--ink); font-weight: 600; }
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px;
+  color: var(--warn-ink); background: var(--warn-bg);
+}
+
+/* panels */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--ring);
+  border-radius: 10px;
+  padding: 20px;
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.panel h2 { font-size: 16px; font-weight: 600; }
+.panel .sub { color: var(--ink-2); font-size: 13px; margin: 2px 0 0; }
+
+/* simulator */
+.sim { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); gap: 28px; align-items: start; }
+.verdict { display: grid; gap: 10px; }
+.big { display: flex; align-items: baseline; gap: 8px; }
+.big .n { font-size: 64px; line-height: 1; font-weight: 700; letter-spacing: -0.03em; }
+.big .u { font-size: 18px; font-weight: 600; color: var(--ink-2); }
+.verdict .say { margin: 0; font-size: 15px; max-width: 42ch; }
+.verdict .say strong { font-weight: 600; }
+.controls { display: grid; gap: 12px; }
+.slider-row { display: flex; align-items: center; gap: 12px; }
+.slider-row label { font-size: 13px; color: var(--ink-2); white-space: nowrap; }
+.slider-row output { font-family: var(--mono); font-size: 15px; font-weight: 500; min-width: 3.5ch; text-align: right; }
+input[type="range"] { flex: 1; accent-color: var(--s1); min-width: 0; height: 28px; }
+.presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.presets button {
+  font: inherit; font-size: 12.5px; border: 0; cursor: pointer;
+  padding: 5px 11px; border-radius: 999px; background: var(--chip); color: var(--ink);
+}
+.presets button b { font-family: var(--mono); font-weight: 500; margin-right: 4px; }
+.presets button[aria-pressed="true"] { background: var(--chip-on); color: var(--chip-on-ink); }
+.check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); cursor: pointer; }
+.check input { accent-color: var(--s1); width: 16px; height: 16px; }
+
+.funnel { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.funnel li {
+  display: grid; gap: 2px; padding: 12px; border-radius: 8px; background: var(--page);
+}
+.funnel .fv { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+.funnel .fl { font-size: 12.5px; color: var(--ink-2); font-weight: 500; }
+.funnel .fn { font-size: 11.5px; color: var(--muted); line-height: 1.4; }
+.funnel li.last { background: var(--hl); }
+
+/* charts */
+.charts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+.chart-box { position: relative; width: 100%; }
+.chart-box svg { display: block; width: 100%; height: auto; overflow: visible; }
+.gates { display: grid; gap: 7px; }
+.gate {
+  display: grid; grid-template-columns: minmax(0, 11.5em) minmax(0, 1fr); align-items: center; gap: 10px;
+  font-size: 12.5px;
+}
+.gate .gl { color: var(--ink-2); text-align: right; line-height: 1.3; }
+.gate .track { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.gate .bar { height: 14px; border-radius: 0 4px 4px 0; background: var(--s1); min-width: 2px; }
+.gate .gv { font-family: var(--mono); font-size: 12px; color: var(--ink); white-space: nowrap; }
+.gate .gv span { color: var(--muted); }
+.note { font-size: 12px; color: var(--muted); margin: 0; }
+
+/* table */
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--ink-2); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.legend .off { color: var(--muted); }
+.legend .off i { background: transparent; border: 1px dashed var(--axis); }
+.table-scroll { overflow-x: auto; margin-inline: -20px; padding-inline: 20px; }
+table { width: 100%; border-collapse: collapse; min-width: 980px; font-size: 13px; }
+th {
+  text-align: left; font-weight: 500; font-size: 12px; color: var(--muted);
+  padding: 0 10px 8px; border-bottom: 1px solid var(--axis); white-space: nowrap;
+}
+th.r, td.r { text-align: right; }
+td { padding: 9px 10px; border-bottom: 1px solid var(--grid); vertical-align: middle; }
+tbody tr.on { background: var(--hl); }
+.rank { font-family: var(--mono); color: var(--muted); font-size: 12px; width: 2.5em; }
+.stock { display: grid; gap: 1px; }
+.stock .nm { font-weight: 600; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.stock .cd { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+.tag { font-size: 10.5px; font-weight: 500; padding: 0 6px; border-radius: 4px; background: var(--chip); color: var(--ink-2); }
+.score { display: grid; grid-template-columns: 2.4em minmax(120px, 1fr); align-items: center; gap: 8px; }
+.score .v { font-family: var(--mono); font-weight: 500; font-size: 14px; text-align: right; }
+.stack { display: flex; gap: 2px; height: 12px; width: 100%; }
+.stack span { height: 100%; }
+.stack span:first-child { border-radius: 3px 0 0 3px; }
+.stack span:last-child { border-radius: 0 3px 3px 0; }
+.px { font-family: var(--mono); white-space: nowrap; }
+.px .g { font-size: 10px; margin-right: 3px; }
+.px.up .g { color: var(--up); }
+.px.dn .g { color: var(--down); }
+.state {
+  display: inline-block; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+  white-space: nowrap; background: var(--chip); color: var(--ink-2);
+}
+.state.alert { background: var(--chip-on); color: var(--chip-on-ink); }
+.state.hold { background: transparent; color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--axis); }
+
+/* caveats */
+.caveats ul { margin: 0; padding-left: 1.1em; display: grid; gap: 6px; color: var(--ink-2); max-width: 78ch; }
+.caveats li::marker { color: var(--muted); }
+.caveats b { color: var(--ink); font-weight: 600; }
+.src { font-size: 12px; color: var(--muted); margin: 0; }
+
+/* tooltip */
+.tip {
+  position: fixed; z-index: 10; pointer-events: none;
+  background: var(--ink); color: var(--surface);
+  font-size: 12px; line-height: 1.45; padding: 7px 9px; border-radius: 6px;
+  max-width: 240px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+.tip .tr { display: flex; justify-content: space-between; gap: 14px; }
+.tip i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
+
+:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+
+@media (max-width: 860px) {
+  .sim { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .charts { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .wrap { padding-inline: 16px; }
+  .panel { padding: 16px; }
+  .table-scroll { margin-inline: -16px; padding-inline: 16px; }
+  .big .n { font-size: 52px; }
+  .funnel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .gate { grid-template-columns: minmax(0, 8.5em) minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .gate .bar, .funnel li { transition: background-color 0.15s ease; }
+}
+
+/* token gate & outcomes */
+.gate-in { display: grid; gap: 12px; max-width: 560px; }
+.gate-in .row { display: flex; gap: 8px; flex-wrap: wrap; }
+.gate-in input {
+  flex: 1; min-width: 0; font: inherit; font-family: var(--mono); font-size: 13px; padding: 9px 10px;
+  border-radius: 6px; border: 1px solid var(--axis); background: var(--page); color: var(--ink);
+}
+.btn { font: inherit; font-size: 13px; font-weight: 600; border: 0; cursor: pointer; padding: 9px 16px; border-radius: 6px; background: var(--chip-on); color: var(--chip-on-ink); }
+.err { color: var(--up); font-size: 13px; margin: 0; }
+.linkbtn { background: none; border: 0; padding: 0; font: inherit; font-size: 12px; color: var(--muted); text-decoration: underline; cursor: pointer; }
+table.otable { min-width: 560px; }
+.otable td .m { color: var(--muted); font-size: 12px; margin-left: 4px; }
+.otable tr.total td { font-weight: 600; border-top: 1px solid var(--axis); }
+.otable tr.base td { color: var(--ink-2); }
+</style>
+
+</head>
+<body>
+<main class="wrap">
+  <header class="head">
+    <div class="eyebrow"><span id="stage"></span> · 전략 <span id="ver" class="mono"></span></div>
+    <h1>수급 선행 스크리너</h1>
+    <div class="meta" id="meta" hidden>
+      <span>가격·수급 기준 <b id="asof" class="mono"></b></span>
+      <span>외국인 보유 기준 <b id="hasof" class="mono"></b></span>
+      <span id="scope"></span>
+      <span class="badge" id="badge"></span>
+    </div>
+  </header>
+
+  <section class="panel" id="gatePanel" hidden aria-labelledby="gate-in-h">
+    <form class="gate-in" id="gateForm">
+      <h2 id="gate-in-h">비공개 데이터</h2>
+      <p class="sub">결과는 비공개 저장소에 있습니다. 읽기 권한이 있는 GitHub 토큰을 넣으면 이 기기의 브라우저에만 저장됩니다.</p>
+      <div class="row">
+        <label for="tok" class="sub" hidden>GitHub 토큰</label>
+        <input id="tok" type="password" autocomplete="off" placeholder="github_pat_…" required>
+        <button class="btn" type="submit">불러오기</button>
+      </div>
+      <p class="err" id="gateErr" hidden></p>
+    </form>
+  </section>
+
+  <div id="app" hidden style="display: contents">
+  <section class="panel sim" aria-labelledby="sim-h">
+    <div class="verdict">
+      <h2 id="sim-h">알림 문턱 시뮬레이터</h2>
+      <div class="big" aria-live="polite"><span class="n num" id="sendN">0</span><span class="u">종목 발송</span></div>
+      <p class="say" id="say"></p>
+      <div class="controls">
+        <div class="slider-row">
+          <label for="thr">문턱 점수</label>
+          <input type="range" id="thr" min="40" max="80" step="1">
+          <output id="thrOut" for="thr"></output>
+        </div>
+        <div class="presets" id="presets" role="group" aria-label="문턱 프리셋"></div>
+        <label class="check"><input type="checkbox" id="cap" checked> 하루 최대 <span id="capN"></span>개만 발송 (config의 max_events)</label>
+      </div>
+    </div>
+    <ol class="funnel" aria-label="걸러지는 과정">
+      <li><span class="fl">1차 필터</span><span class="fv num" id="f1"></span><span class="fn" id="f1n"></span></li>
+      <li><span class="fl">엔진 평가</span><span class="fv num" id="f2"></span><span class="fn" id="f2n"></span></li>
+      <li><span class="fl">필수 게이트 통과</span><span class="fv num" id="f3"></span><span class="fn" id="f3n"></span></li>
+      <li class="last"><span class="fl">문턱 통과</span><span class="fv num" id="f4"></span><span class="fn" id="f4n"></span></li>
+    </ol>
+  </section>
+
+  <section class="panel" aria-labelledby="oc-h">
+    <div>
+      <h2 id="oc-h">적중 기록</h2>
+      <p class="sub" id="ocSub"></p>
+    </div>
+    <div class="table-scroll" id="ocWrap">
+      <table class="otable">
+        <thead><tr><th>구분</th><th class="r">신규 후보</th><th class="r">2~5일 돌파</th><th class="r">다음날 돌파</th><th class="r">무효화 먼저</th><th class="r">5일 수익률</th></tr></thead>
+        <tbody id="ocRows"></tbody>
+      </table>
+    </div>
+    <p class="note" id="ocHits"></p>
+  </section>
+
+  <div class="charts">
+    <section class="panel" aria-labelledby="hist-h">
+      <div>
+        <h2 id="hist-h">게이트 통과 종목의 점수 분포</h2>
+        <p class="sub" id="histSub"></p>
+      </div>
+      <div class="chart-box" id="hist"></div>
+      <p class="note" id="partsNote"></p>
+    </section>
+    <section class="panel" aria-labelledby="gate-h">
+      <div>
+        <h2 id="gate-h">어느 게이트에서 걸러지나</h2>
+        <p class="sub" id="gateSub"></p>
+      </div>
+      <div class="gates" id="gates"></div>
+      <p class="note">한 종목이 여러 게이트에서 동시에 떨어질 수 있어 합계는 평가 종목 수보다 큽니다.</p>
+    </section>
+  </div>
+
+  <section class="panel" aria-labelledby="tbl-h">
+    <div>
+      <h2 id="tbl-h">필수 게이트 통과 종목</h2>
+      <p class="sub">점수 → 외국인 점수 → 박스 상단까지 거리 순. 문턱을 넘은 줄은 강조됩니다.</p>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>종목</th><th>업종</th><th>점수 구성</th>
+            <th class="r">박스 상단까지</th><th class="r">돌파가</th><th class="r">무효화가</th>
+            <th class="r">외인 지분 20일</th><th class="r">외인 순매수일</th><th class="r">거래량 5/20일</th><th>상태</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel caveats" aria-labelledby="cv-h">
+    <h2 id="cv-h">이 숫자를 읽을 때</h2>
+    <ul id="caveats"></ul>
+    <p class="src">출처: 한국거래소(KRX)·한국투자증권 시세와 투자자별 거래. 개인 참고용. <span id="gen"></span>
+      <button class="linkbtn" id="forget" type="button" hidden>이 기기에서 토큰 지우기</button></p>
+  </section>
+  </div>
+</main>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+/* 데이터가 내장돼 있으면(아티팩트) 바로 그리고, 없으면(GitHub Pages) 토큰으로 비공개 저장소에서 읽는다.
+   게이트 이름·배점·문턱 후보 같은 전략 정보는 모두 데이터(D)에만 있다. */
+const EMBEDDED = null;
+const DATA_URL = "https://api.github.com/repos/isdoho/kr_stock_screener-data/contents/latest.json";
+const TOKEN_KEY = "kr-screener-token";
+
+const $ = (id) => document.getElementById(id);
+const nf = (n) => n.toLocaleString("ko-KR");
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const pct = (x, d = 1) => (x * 100).toFixed(d) + "%";
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const store = {
+  get() { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } },
+  set(v) { try { localStorage.setItem(TOKEN_KEY, v); } catch {} },
+  clear() { try { localStorage.removeItem(TOKEN_KEY); } catch {} },
+};
+
+const tip = $("tip");
+function showTip(html, ev) {
+  tip.innerHTML = html;
+  tip.hidden = false;
+  const pad = 14, w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = ev.clientX + pad, y = ev.clientY + pad;
+  if (x + w > innerWidth - 8) x = ev.clientX - w - pad;
+  if (y + h > innerHeight - 8) y = ev.clientY - h - pad;
+  tip.style.left = Math.max(8, x) + "px";
+  tip.style.top = Math.max(8, y) + "px";
+}
+const hideTip = () => { tip.hidden = true; };
+
+function start(D) {
+  $("gatePanel").hidden = true;
+  $("app").hidden = false;
+  $("meta").hidden = false;
+  const GATE = D.gateLabels, PARTS = D.parts;
+  const MAXSUM = PARTS.reduce((a, p) => a + p[1], 0);
+  const state = { thr: D.configThreshold, cap: true };
+  const maxScore = D.rows.length ? D.rows[0].sc : 0;
+
+  $("stage").textContent = D.stage;
+  $("ver").textContent = "v" + D.version;
+  $("asof").textContent = D.asOf;
+  $("hasof").textContent = D.holdingsAsOf;
+  $("scope").textContent = D.scope;
+  $("badge").textContent = D.badge;
+  $("capN").textContent = D.maxEvents;
+  $("gen").textContent = D.generatedAt ? "· 생성 " + D.generatedAt : "";
+  $("f1").textContent = nf(D.funnel.universe);
+  $("f1n").textContent = D.universeNote;
+  $("f2").textContent = nf(D.funnel.evaluated);
+  $("f2n").textContent = "제외 " + nf(D.funnel.universe - D.funnel.evaluated) +
+    (D.excluded.length ? " · " + D.excluded.slice(0, 2).map(([k, v]) => k + " " + v).join(", ") : "");
+  $("f3").textContent = nf(D.funnel.passed);
+  $("f3n").textContent = pct(D.funnel.passed / Math.max(1, D.funnel.evaluated)) + " · 최고 " + maxScore + "점";
+  $("gateSub").textContent = "평가 " + nf(D.funnel.evaluated) + "종목 중 게이트별 탈락 수";
+  $("partsNote").textContent = "점수 구성: " + PARTS.map(([n, m]) => n + " " + m).join(" · ") + (D.partsNote ? " · " + D.partsNote : "");
+  $("caveats").innerHTML = D.caveats.map((c) => `<li>${c}</li>`).join("");
+  $("presets").innerHTML = D.presets.map(([v, label]) => `<button type="button" data-v="${v}"><b>${v}</b>${esc(label)}</button>`).join("");
+  $("thr").value = state.thr;
+  $("legend").innerHTML = PARTS.map(([n, m, c]) => `<span><i style="background:var(${c})"></i>${n} ${m}</span>`).join("") +
+    (D.partsOff ? `<span class="off"><i></i>${esc(D.partsOff)}</span>` : "");
+
+  /* 적중 기록 */
+  const o = D.outcomes;
+  if (!o || !o.all || !o.all.n) {
+    $("ocSub").textContent = "신호일로부터 6거래일 뒤부터 채점이 쌓입니다 (5거래일 결과 + 공식 일봉 공개 1일).";
+    $("ocWrap").hidden = true;
+  } else {
+    $("ocSub").textContent = `${o.first} 이후 ${o.days}거래일 신호 · 적중 = 신호 다음 2~5거래일 안에 종가가 돌파가를 넘고 거래량 3배, 무효화가 먼저면 제외`;
+    const cell = (a, n) => `${nf(a)}<span class="m">${n ? pct(a / n, 0) : "-"}</span>`;
+    const ret = (x) => x == null ? "-" : (x >= 0 ? "+" : "") + (x * 100).toFixed(1) + "%";
+    const row = (name, s, cls) => `<tr class="${cls || ""}"><td>${esc(name)}</td><td class="r num">${nf(s.n)}</td>
+      <td class="r num">${cell(s.hit, s.n)}</td><td class="r num">${cell(s.early, s.n)}</td><td class="r num">${cell(s.inv, s.n)}</td><td class="r num">${ret(s.ret5)}</td></tr>`;
+    $("ocRows").innerHTML = Object.entries(o.bands).filter(([, s]) => s.n).map(([k, s]) => row(k, s)).join("") +
+      row("신규 후보 전체", o.all, "total") + row("비교군 (게이트 탈락)", o.baseline, "base");
+    $("ocHits").textContent = o.hits.length ? "적중 종목: " + o.hits.slice(0, 8).map((h) => `${h.name} ${h.t.slice(5)} (${h.day}일째, ${ret(h.ret5)})`).join(" · ") : "";
+  }
+
+  /* 게이트 막대 */
+  const gmax = D.gates.length ? D.gates[0][1] : 1;
+  $("gates").innerHTML = D.gates.map(([g, n]) => `
+    <div class="gate" data-g="${g}" data-n="${n}">
+      <span class="gl">${esc(GATE[g] || g)}</span>
+      <span class="track"><span class="bar" style="width:${(n / gmax) * 78}%"></span><span class="gv">${nf(n)} <span>${pct(n / D.funnel.evaluated, 0)}</span></span></span>
+    </div>`).join("");
+  $("gates").addEventListener("pointermove", (e) => {
+    const el = e.target.closest(".gate");
+    if (!el) return hideTip();
+    const n = +el.dataset.n;
+    showTip(`<b>${esc(GATE[el.dataset.g] || el.dataset.g)}</b><div class="tr"><span>탈락</span><span>${nf(n)}종목 (${pct(n / D.funnel.evaluated)})</span></div>`, e);
+  });
+  $("gates").addEventListener("pointerleave", hideTip);
+
+  /* 후보 표 */
+  const tbody = $("rows");
+  tbody.innerHTML = D.rows.map((r, i) => {
+    const segs = r.c.map((v, k) => v > 0 ? `<span style="width:${(v / MAXSUM) * 100}%;background:var(${PARTS[k][2]})"></span>` : "").join("");
+    return `<tr data-i="${i}">
+      <td class="rank">${i + 1}</td>
+      <td><div class="stock"><span class="nm">${esc(r.n)}${r.legacy ? '<span class="tag" title="legacy_watchlist에 있는 종목. 첫 운영 때 신규 알림으로 다시 보내지 않습니다.">이전 언급</span>' : ""}</span><span class="cd">${r.t} · ${esc(r.m || "")}</span></div></td>
+      <td>${esc(r.s)}</td>
+      <td><div class="score"><span class="v">${r.sc}</span><span class="stack" data-i="${i}">${segs}</span></div></td>
+      <td class="r num">${pct(r.gap)}</td>
+      <td class="r"><span class="px up"><span class="g" aria-hidden="true">▲</span>${nf(r.bo)}</span></td>
+      <td class="r"><span class="px dn"><span class="g" aria-hidden="true">▼</span>${nf(r.inv)}</span></td>
+      <td class="r num">${r.hd >= 0 ? "+" : ""}${r.hd.toFixed(2)}%p</td>
+      <td class="r num">${r.fd}/20</td>
+      <td class="r num">${r.vc.toFixed(2)}</td>
+      <td><span class="state"></span></td>
+    </tr>`;
+  }).join("");
+  tbody.addEventListener("pointermove", (e) => {
+    const s = e.target.closest(".stack");
+    if (!s) return hideTip();
+    const r = D.rows[+s.dataset.i];
+    showTip(`<b>${esc(r.n)} ${r.sc}점</b>` + PARTS.map(([n, m, c], k) =>
+      `<div class="tr"><span><i style="background:var(${c})"></i>${n}</span><span>${r.c[k]} / ${m}</span></div>`).join("") +
+      (r.pen ? `<div class="tr"><span>위험 감점</span><span>−${r.pen}</span></div>` : "") +
+      `<div class="tr"><span>외국인 경로</span><span>${r.routes.join("·") || "-"}</span></div>`, e);
+  });
+  tbody.addEventListener("pointerleave", hideTip);
+
+  /* 점수 분포 (게이트 통과 종목, 5점 구간) */
+  function drawHist() {
+    const box = $("hist");
+    const W = Math.max(280, box.clientWidth), H = 220;
+    const m = { l: 30, r: 8, t: 22, b: 30 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    const counts = D.bins.map((b) => b[0]);
+    const ymax = Math.max(4, Math.ceil(Math.max(...counts) / 4) * 4);
+    const x = (s) => m.l + (s / 100) * iw;
+    const y = (v) => m.t + ih - (v / ymax) * ih;
+    const bw = iw / 20;
+    const ink = css("--muted"), grid = css("--grid"), axis = css("--axis"), s1 = css("--s1"), zone = css("--zone"), strong = css("--ink");
+    let g = "";
+    for (let v = 0; v <= ymax; v += ymax / 4) {
+      g += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="${v ? grid : axis}" stroke-width="1"/>`;
+      g += `<text x="${m.l - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="${ink}" font-family="IBM Plex Mono, monospace">${v}</text>`;
+    }
+    for (let s = 0; s <= 100; s += 20) {
+      g += `<text x="${x(s)}" y="${H - 10}" text-anchor="middle" font-size="11" fill="${ink}" font-family="IBM Plex Mono, monospace">${s}</text>`;
+    }
+    const tx = x(state.thr);
+    g = `<rect x="${tx}" y="${m.t}" width="${W - m.r - tx}" height="${ih}" fill="${zone}"/>` + g;
+    counts.forEach((c, i) => {
+      if (!c) return;
+      const bx = x(i * 5) + 1, h = (c / ymax) * ih;
+      const r = Math.min(4, h, (bw - 2) / 2);
+      g += `<path d="M${bx},${m.t + ih} v${-(h - r)} q0,${-r} ${r},${-r} h${bw - 2 - 2 * r} q${r},0 ${r},${r} v${h - r} z" fill="${s1}"/>`;
+    });
+    counts.forEach((c, i) => {
+      g += `<rect class="hit" data-i="${i}" x="${x(i * 5)}" y="${m.t}" width="${bw}" height="${ih}" fill="transparent"/>`;
+    });
+    g += `<line x1="${tx}" x2="${tx}" y1="${m.t - 6}" y2="${m.t + ih}" stroke="${strong}" stroke-width="1.5"/>`;
+    const anchor = state.thr > 85 ? "end" : "start";
+    g += `<text x="${tx + (anchor === "start" ? 5 : -5)}" y="${m.t - 9}" text-anchor="${anchor}" font-size="11.5" font-weight="600" fill="${strong}">문턱 ${state.thr}</text>`;
+    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="게이트 통과 ${D.funnel.passed}종목의 점수 분포, 5점 구간">${g}</svg>`;
+  }
+  $("hist").addEventListener("pointermove", (e) => {
+    const h = e.target.closest(".hit");
+    if (!h) return hideTip();
+    const i = +h.dataset.i, c = D.bins[i];
+    showTip(`<b>${i * 5}–${i * 5 + 4}점</b><div class="tr"><span>게이트 통과</span><span>${c[0]}종목</span></div><div class="tr"><span>전체 평가 종목</span><span>${nf(c[0] + c[1])}종목</span></div>`, e);
+  });
+  $("hist").addEventListener("pointerleave", hideTip);
+
+  /* 엔진의 단계 판정(PRE_SIGNAL → APPROACHING)을 선택한 문턱으로 재현 */
+  function stageOf(r, rank) {
+    if (r.sc < state.thr) return ["관찰", ""];
+    if (state.cap && rank >= D.maxEvents) return ["대기 · " + (rank + 1) + "위", "hold"];
+    if (r.vs >= D.preSignal[0] && r.vs < D.preSignal[1] && r.close < r.bo) return ["알림 · 거래량 선행", "alert"];
+    if (r.gap <= D.approachGap) return ["알림 · 상단 근접", "alert"];
+    return ["알림 · 신규 후보", "alert"];
+  }
+
+  function render() {
+    const t = state.thr;
+    const over = D.rows.filter((r) => r.sc >= t).length;
+    const send = state.cap ? Math.min(over, D.maxEvents) : over;
+    $("thrOut").textContent = t + "점";
+    $("sendN").textContent = send;
+    $("f4").textContent = nf(over);
+    $("f4n").textContent = over === 0 ? "문턱 " + t + "점 이상 없음" : (state.cap && over > D.maxEvents ? "상위 " + D.maxEvents + "개만 발송" : "전부 발송");
+    let say;
+    if (over === 0) {
+      say = `<strong>${t}점을 넘는 종목이 없습니다.</strong> 게이트를 통과한 ${D.funnel.passed}종목 중 최고점이 ${maxScore}점입니다.`;
+    } else if (state.cap && over > D.maxEvents) {
+      say = `<strong>${t}점 이상 ${over}종목</strong> 중 점수 상위 ${D.maxEvents}개만 보내고 나머지 ${over - D.maxEvents}개는 대기합니다.`;
+    } else {
+      say = `<strong>${t}점 이상 ${over}종목</strong>이 알림 대상입니다.`;
+    }
+    if (t === D.configThreshold) say += ` 지금 config.json의 설정값입니다.`;
+    $("say").innerHTML = say;
+    $("histSub").textContent = `${D.funnel.passed}종목, 5점 구간 · 음영은 문턱 ${t}점 이상`;
+    document.querySelectorAll("#presets button").forEach((b) => b.setAttribute("aria-pressed", String(+b.dataset.v === t)));
+    let rank = 0;
+    tbody.querySelectorAll("tr").forEach((tr, i) => {
+      const r = D.rows[i];
+      const [label, cls] = stageOf(r, rank);
+      if (r.sc >= t) rank++;
+      tr.classList.toggle("on", r.sc >= t);
+      const chip = tr.querySelector(".state");
+      chip.textContent = label;
+      chip.className = "state" + (cls ? " " + cls : "");
+    });
+    drawHist();
+  }
+
+  $("thr").addEventListener("input", (e) => { state.thr = +e.target.value; render(); });
+  $("presets").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    state.thr = +b.dataset.v; $("thr").value = state.thr; render();
+  });
+  $("cap").addEventListener("change", (e) => { state.cap = e.target.checked; render(); });
+  new ResizeObserver(() => drawHist()).observe($("hist"));
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawHist);
+  new MutationObserver(drawHist).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  render();
+}
+
+async function load(token) {
+  const r = await fetch(DATA_URL, { cache: "no-store", headers: {
+    Authorization: "Bearer " + token, Accept: "application/vnd.github.raw+json" } });
+  if (r.status === 401) throw new Error("토큰이 올바르지 않거나 만료됐습니다.");
+  if (r.status === 404 || r.status === 403) throw new Error("이 토큰에 kr_stock_screener-data 저장소 읽기 권한이 없습니다.");
+  if (!r.ok) throw new Error("불러오기 실패 (HTTP " + r.status + "). 잠시 뒤 다시 시도하세요.");
+  return r.json();
+}
+
+function gate(message) {
+  $("gatePanel").hidden = false;
+  $("gateErr").hidden = !message;
+  $("gateErr").textContent = message || "";
+}
+
+if (EMBEDDED) {
+  start(EMBEDDED);
+} else {
+  $("stage").textContent = "매일 기록";
+  $("forget").hidden = false;
+  $("forget").addEventListener("click", () => { store.clear(); location.reload(); });
+  $("gateForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const token = $("tok").value.trim();
+    try { const D = await load(token); store.set(token); start(D); }
+    catch (err) { gate(err.message); }
+  });
+  const saved = store.get();
+  if (saved) load(saved).then(start).catch((err) => gate(err.message));
+  else gate();
+}
+</script>
+</body>
+</html>
